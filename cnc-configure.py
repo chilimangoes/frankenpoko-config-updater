@@ -1,6 +1,8 @@
 import serial
 import serial.tools.list_ports
 import psutil
+import tkinter as tk
+from PIL import Image, ImageTk
 
 def find_shapeoko_controller():
     # List all available serial ports
@@ -92,24 +94,70 @@ def close_carbide_motion():
     print("carbidemotion.exe is not running.")
     return False
 
+def show_message(title, message, image_path=None):
+    root = tk.Tk()
+    root.title(title)
+    root.state('zoomed')  # Open the window maximized
+
+    # Create the message label
+    msg = tk.Label(root, text=message, font=("Arial", 16), wraplength=root.winfo_screenwidth() - 40)
+    msg.pack(padx=20, pady=10)  # Double the horizontal padding
+
+    # Function to update wraplength on window resize
+    def update_wraplength(event):
+        new_width = root.winfo_width() - 40
+        msg.config(wraplength=new_width)
+
+    root.bind('<Configure>', update_wraplength)
+
+    # Load and display the image if provided
+    if image_path:
+        try:
+            image = Image.open(image_path)
+            photo = ImageTk.PhotoImage(image)
+            img_label = tk.Label(root, image=photo)
+            img_label.image = photo  # Keep a reference to avoid garbage collection
+            img_label.pack(padx=10, pady=10)
+        except Exception as e:
+            print(f"Error loading image: {e}")
+
+    # Create the OK button
+    ok_button = tk.Button(root, text="OK", font=("Arial", 18), command=root.destroy)
+    ok_button.pack(pady=10)
+
+    # Run the Tkinter main loop
+    root.mainloop()
+
+def try_connect(retries=2):
+    attempts = 0
+    while attempts < retries:
+        ser = find_shapeoko_controller()
+        if ser is not None:
+            print("Shapeoko controller found.")
+            set_and_verify_parameters(ser)
+            repl_loop(ser)
+            ser.close()
+            return
+        else:
+            attempts += 1
+            show_message(
+                "Shapeoko Controller Not Found",
+                "The Shapeoko controller does not appear to be turned on and/or connected to the computer. "
+                "Please make sure the e-stop switch is in the reset/up position by turning it clockwise until it clicks and pops up. "
+                "Click OK or close this window when you've verified that the e-stop is reset and the controller is running.",
+                image_path="estop_reset.png"
+            )
+
+    show_message("Shapeoko Controller Not Found",
+                 "The Shapeoko controller still could not be found after several attempts. "
+                 "You may need to report this issue in the Woodshop section on Talk.")
+
 def main():
     # Close Carbide Motion if it is running
     close_carbide_motion()
 
-    # Find the Shapeoko controller
-    ser = find_shapeoko_controller()
-    if ser is None:
-        print("Shapeoko controller not found.")
-        return
-
-    # Set and verify parameters
-    set_and_verify_parameters(ser)
-
-    # Start the REPL loop
-    repl_loop(ser)
-
-    # Close the serial connection
-    ser.close()
+    # Try to connect to the Shapeoko controller
+    try_connect(retries=2)
 
 if __name__ == "__main__":
     main()
