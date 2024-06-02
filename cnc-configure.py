@@ -131,22 +131,30 @@ def show_message(title, message, image_path=None):
 def try_connect(retries=2):
     attempts = 0
     while attempts < retries:
-        ser = find_shapeoko_controller()
-        if ser is not None:
-            print("Shapeoko controller found.")
-            set_and_verify_parameters(ser)
-            repl_loop(ser)
-            ser.close()
-            return
-        else:
-            attempts += 1
-            show_message(
-                "Shapeoko Controller Not Found",
-                "The Shapeoko controller does not appear to be turned on and/or connected to the computer. "
-                "Please make sure the e-stop switch is in the reset/up position by turning it clockwise until it clicks and pops up. "
-                "Click OK or close this window when you've verified that the e-stop is reset and the controller is running.",
-                image_path="estop_reset.png"
-            )
+        try:
+            ser = find_shapeoko_controller()
+            if ser is not None:
+                print("Shapeoko controller found.")
+                set_and_verify_parameters(ser)
+                repl_loop(ser)
+                ser.close()
+                return
+        except serial.SerialException as e:
+            if "Access Denied" in str(e):
+                show_message(
+                    "Access Denied",
+                    "An Access Denied error occurred. Please make sure Carbide Motion is not running and try again."
+                )
+                attempts += 1
+                continue
+        attempts += 1
+        show_message(
+            "Shapeoko Controller Not Found",
+            "The Shapeoko controller does not appear to be turned on and/or connected to the computer. "
+            "Please make sure the e-stop switch is in the reset/up position by turning it clockwise until it clicks and pops up. "
+            "Click OK or close this window when you've verified that the e-stop is reset and the controller is running.",
+            image_path="estop_reset.png"
+        )
 
     show_message("Shapeoko Controller Not Found",
                  "The Shapeoko controller still could not be found after several attempts. "
