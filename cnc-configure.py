@@ -28,13 +28,44 @@ def send_gcode_command(ser, command, retries=3):
             attempt += 1
     return None
 
-def main():
-    # Find the Shapeoko controller
-    ser = find_shapeoko_controller()
-    if ser is None:
-        print("Shapeoko controller not found.")
-        return
+def set_and_verify_parameters(ser):
+    # G-code commands to set parameters
+    commands = [
+        "$100=26.667",  # Set X-axis steps per millimeter
+        "$101=26.667",  # Set Y-axis steps per millimeter
+        "$102=200",    # Set Z-axis steps per millimeter
+        "$130=507",    # Set maximum travel (mm) along the X-axis
+        "$131=490",    # Set maximum travel (mm) along the Y-axis
+        "$140=140"     # Set maximum travel (mm) along the Z-axis
+    ]
 
+    # Send each command
+    for command in commands:
+        response = send_gcode_command(ser, command)
+        if response is not None:
+            print(f"Set command response: {response}")
+        else:
+            print(f"Failed to set parameter with command: {command}")
+
+    # Verify the parameters
+    verify_command = "$$"
+    responses = send_gcode_command(ser, verify_command)
+    if responses is not None:
+        print("Verification of parameters:")
+        for response in responses:
+            print(f"Response: {response}")
+        # Check if all parameters are correctly set
+        for command in commands:
+            param, value = command.split('=')
+            found = any(param in response and value in response for response in responses)
+            if found:
+                print(f"{param} set correctly to {value}")
+            else:
+                print(f"{param} not set correctly")
+    else:
+        print("Failed to verify parameters with command: $$")
+
+def repl_loop(ser):
     while True:
         # Read G-code command from user
         command = input("Enter G-code command (or 'exit' to quit): ")
@@ -48,6 +79,19 @@ def main():
                 print(f"Response: {response}")
         else:
             print("Failed to get a response from the Shapeoko controller.")
+
+def main():
+    # Find the Shapeoko controller
+    ser = find_shapeoko_controller()
+    if ser is None:
+        print("Shapeoko controller not found.")
+        return
+
+    # Set and verify parameters
+    set_and_verify_parameters(ser)
+
+    # Start the REPL loop
+    repl_loop(ser)
 
     # Close the serial connection
     ser.close()
