@@ -1,5 +1,6 @@
 import serial
 import serial.tools.list_ports
+import psutil
 
 def find_shapeoko_controller():
     # List all available serial ports
@@ -80,7 +81,21 @@ def repl_loop(ser):
         else:
             print("Failed to get a response from the Shapeoko controller.")
 
+def close_carbide_motion():
+    for proc in psutil.process_iter(['pid', 'name']):
+        if proc.info['name'] == 'carbidemotion.exe':
+            print(f"Found running process carbidemotion.exe with PID {proc.info['pid']}. Terminating it.")
+            proc.terminate()
+            proc.wait()
+            print("Process terminated.")
+            return True
+    print("carbidemotion.exe is not running.")
+    return False
+
 def main():
+    # Close Carbide Motion if it is running
+    close_carbide_motion()
+
     # Find the Shapeoko controller
     ser = find_shapeoko_controller()
     if ser is None:

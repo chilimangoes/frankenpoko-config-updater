@@ -3,7 +3,7 @@ https://realpython.com/python-virtual-environments-a-primer/#how-can-you-work-wi
 
 Create/activate venv: `python -m venv .venv`
 Activate venv: `.venv\Scripts\activate`
-Install dependencies: `pip install pyserial`
+Install dependencies: `pip install pyserial psutil`
 
 
 Run script: `python cnc-configure.py`
