@@ -4,19 +4,11 @@ import psutil
 import tkinter as tk
 from PIL import Image, ImageTk
 
-def find_shapeoko_controller():
-    # List all available serial ports
-    ports = serial.tools.list_ports.comports()
-    for port in ports:
-        print(f"Checking port: {port.device}")
-        if "Shapeoko" in port.description:
-            print(f"Shapeoko controller found on port: {port.device}")
-            try:
-                ser = serial.Serial(port.device, 115200, timeout=1)
-                return ser
-            except (OSError, serial.SerialException) as e:
-                print(f"Error opening port {port.device}: {e}")
-    return None
+def list_serial_ports():
+    return serial.tools.list_ports.comports()
+
+def open_serial_port(port_device):
+    return serial.Serial(port_device, 115200, timeout=1)
 
 def send_gcode_command(ser, command, retries=3):
     attempt = 0
@@ -131,22 +123,28 @@ def show_message(title, message, image_path=None):
 def try_connect(retries=2):
     attempts = 0
     while attempts < retries:
-        try:
-            ser = find_shapeoko_controller()
-            if ser is not None:
-                print("Shapeoko controller found.")
-                set_and_verify_parameters(ser)
-                repl_loop(ser)
-                ser.close()
-                return
-        except serial.SerialException as e:
-            if "Access Denied" in str(e):
-                show_message(
-                    "Access Denied",
-                    "An Access Denied error occurred. Please make sure Carbide Motion is not running and try again."
-                )
-                attempts += 1
-                continue
+        ports = list_serial_ports()
+        for port in ports:
+            print(f"Checking port: {port.device}")
+            if "Shapeoko" in port.description:
+                try:
+                    ser = open_serial_port(port.device)
+                    print("Shapeoko controller found.")
+                    set_and_verify_parameters(ser)
+                    repl_loop(ser)
+                    ser.close()
+                    return
+                except serial.SerialException as e:
+                    if "PermissionError" in str(e):
+                        print(f"Access Denied error on port {port.device}: {e}")
+                        show_message(
+                            "Access Denied",
+                            "An Access Denied error occurred. Please make sure Carbide Motion is not running and try again."
+                        )
+                        attempts += 1
+                        continue
+                    else:
+                        print(f"Error opening port {port.device}: {e}")
         attempts += 1
         show_message(
             "Shapeoko Controller Not Found",
