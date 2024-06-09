@@ -1,8 +1,14 @@
+import time
 import serial
 import serial.tools.list_ports
 import psutil
 import tkinter as tk
 from PIL import Image, ImageTk
+
+class ShapeokoAccessDeniedError(Exception):
+    def __init__(self, message, original_exception=None):
+        super().__init__(message)
+        self.original_exception = original_exception
 
 def list_serial_ports():
     return serial.tools.list_ports.comports()
@@ -120,32 +126,46 @@ def show_message(title, message, image_path=None):
     # Run the Tkinter main loop
     root.mainloop()
 
-def try_connect(retries=2):
+def try_connect_and_configure(retries=2):
     attempts = 0
     while attempts < retries:
+        print(f"Looking for Shapeoko controller. Connection attempt {attempts + 1}...")
         ports = list_serial_ports()
-        for port in ports:
-            print(f"Checking port: {port.device}")
-            if "Shapeoko" in port.description:
-                try:
-                    ser = open_serial_port(port.device)
-                    print("Shapeoko controller found.")
-                    set_and_verify_parameters(ser)
-                    repl_loop(ser)
-                    ser.close()
-                    return
-                except serial.SerialException as e:
-                    if "PermissionError" in str(e):
-                        print(f"Access Denied error on port {port.device}: {e}")
-                        show_message(
-                            "Access Denied",
-                            "An Access Denied error occurred. Please make sure Carbide Motion is not running and try again."
-                        )
-                        attempts += 1
-                        continue
-                    else:
-                        print(f"Error opening port {port.device}: {e}")
-        attempts += 1
+        try:
+            for port in ports:
+                print(f"Checking port: {port.device}")
+                if "Shapeoko" in port.description:
+                    try:
+                        ser = open_serial_port(port.device)
+                        print("Shapeoko controller found on port {port.device}.")
+                        set_and_verify_parameters(ser)
+                        repl_loop(ser)
+                        ser.close()
+                        return True
+                    except serial.SerialException as e:
+                        if "PermissionError" in str(e):
+                            print(f"Access Denied error on port {port.device}: {e}")
+                            raise ShapeokoAccessDeniedError(f"Access Denied error on port {port.device}: {e}", e)
+                        else:
+                            print(f"Error opening port {port.device}: {e}")
+                            raise e
+        except ShapeokoAccessDeniedError as e:
+            show_message(
+                "Access Denied",
+                "An Access Denied error occurred while trying to connect to the Shapeoko controller. This usually means that Carbide Moion or some other CNC program is already connected to the controller. Please make sure all programs are closed, including Carbide Motion, and then try again.",
+                image_path="oops.png"
+            )
+            attempts += 1
+            continue
+        except serial.SerialException as e:
+            print(e)
+            show_message(
+                "Connection Error",
+                f"The following error occurred while trying to connect to the Shapeoko controller: {e}\r\n Please make sure all programs are closed, especially Carbide Motion, and then try again. You might also need to reset the controller by hitting the red E-STOP button and then turning it clockwise to reset the power to the controller.",
+                image_path="error.png"
+            )
+            attempts += 1
+            continue
         show_message(
             "Shapeoko Controller Not Found",
             "The Shapeoko controller does not appear to be turned on and/or connected to the computer. "
@@ -153,17 +173,20 @@ def try_connect(retries=2):
             "Click OK or close this window when you've verified that the e-stop is reset and the controller is running.",
             image_path="estop_reset.png"
         )
-
+        attempts += 1
+        continue
+    print(f"Connection failed after {attempts} attempts. Aborting.")
     show_message("Shapeoko Controller Not Found",
-                 "The Shapeoko controller still could not be found after several attempts. "
-                 "You may need to report this issue in the Woodshop section on Talk.")
+                 "The Shapeoko controller still couldn't be found after several attempts. You may need to reset the controller by hitting the red E-STOP button and then turning it clockwise to reset the power to the controller. If this problem persists, please report it in the Woodshop section of the DMS Talk forums.",
+                 image_path="ohno.png")
+    return False
 
 def main():
     # Close Carbide Motion if it is running
     close_carbide_motion()
 
     # Try to connect to the Shapeoko controller
-    try_connect(retries=2)
+    try_connect_and_configure(retries=2)
 
 if __name__ == "__main__":
     main()
