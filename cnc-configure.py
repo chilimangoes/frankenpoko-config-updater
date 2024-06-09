@@ -1,4 +1,3 @@
-import time
 import serial
 import serial.tools.list_ports
 import psutil
@@ -20,10 +19,16 @@ def send_gcode_command(ser, command, retries=3):
     attempt = 0
     while attempt < retries:
         try:
+            print(f"Sending g-code command: {command}")
             ser.write(f"{command}\n".encode())
             ser.flushInput()  # Clear the input buffer
             response = ser.readlines()  # Read all the lines available
-            return [line.decode('utf-8').strip() for line in response]
+            response = [line.decode('utf-8').strip() for line in response]
+            if response is not None:
+                print(f"Controller response: {response}")
+            else:
+                print(f"<No response received from controller>")
+            return response
         except Exception as e:
             print(f"An error occurred while sending the G-code command: {e}")
             attempt += 1
@@ -43,10 +48,6 @@ def set_and_verify_parameters(ser):
     # Send each command
     for command in commands:
         response = send_gcode_command(ser, command)
-        if response is not None:
-            print(f"Set command response: {response}")
-        else:
-            print(f"Failed to set parameter with command: {command}")
 
     # Verify the parameters
     verify_command = "$$"
@@ -137,9 +138,9 @@ def try_connect_and_configure(retries=2):
                 if "Shapeoko" in port.description:
                     try:
                         ser = open_serial_port(port.device)
-                        print("Shapeoko controller found on port {port.device}.")
+                        print(f"Shapeoko controller found on port {port.device}.")
                         set_and_verify_parameters(ser)
-                        repl_loop(ser)
+                        # repl_loop(ser)  ### this is only here for testing purposes
                         ser.close()
                         return True
                     except serial.SerialException as e:
@@ -157,7 +158,7 @@ def try_connect_and_configure(retries=2):
             )
             attempts += 1
             continue
-        except serial.SerialException as e:
+        except Exception as e:
             print(e)
             show_message(
                 "Connection Error",
