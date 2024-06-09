@@ -1,3 +1,5 @@
+import os
+import shutil
 import serial
 import serial.tools.list_ports
 import psutil
@@ -175,19 +177,41 @@ def try_connect_and_configure(retries=2):
             image_path="estop_reset.png"
         )
         attempts += 1
-        continue
     print(f"Connection failed after {attempts} attempts. Aborting.")
     show_message("Shapeoko Controller Not Found",
                  "The Shapeoko controller still couldn't be found after several attempts. You may need to reset the controller by hitting the red E-STOP button and then turning it clockwise to reset the power to the controller. If this problem persists, please report it in the Woodshop section of the DMS Talk forums.",
                  image_path="ohno.png")
     return False
 
+def copy_file(file_name, source_dir, destination_dir):
+    try:
+        source_file_path = os.path.join(source_dir, file_name)
+        destination_file_path = os.path.join(destination_dir, file_name)
+        print(f"Copying '{file_name}' to '{destination_dir}'")
+        shutil.copy(source_file_path, destination_file_path)
+        print(f"File copied successfully.")
+    except Exception as e:
+        print(f"Failed to copy file '{file_name}': {e}")
+
 def main():
     # Close Carbide Motion if it is running
     close_carbide_motion()
 
-    # Try to connect to the Shapeoko controller
-    try_connect_and_configure(retries=2)
+    # Try to connect to the Shapeoko controller and update onboard stepper configuration
+    response = try_connect_and_configure(retries=2)
+
+    if response:
+        # Get the path to the current user's AppData\Local\Carbide 3D\CarbideMotion6 directory
+        destination_dir = os.path.join(
+            os.getenv('LOCALAPPDATA'),
+            'Carbide 3D',
+            'CarbideMotion6'
+        )
+        # Ensure the destination directory exists
+        os.makedirs(destination_dir, exist_ok=True)
+        
+        source_dir = os.path.dirname(__file__) # copy master files from the app folder
+        copy_file("shapeoko.json", source_dir, destination_dir)
 
 if __name__ == "__main__":
     main()

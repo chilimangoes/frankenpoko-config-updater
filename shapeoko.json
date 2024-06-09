@@ -1,0 +1,30 @@
+{
+    "bitRunnerEnabled": true,
+    "bitSetterEnabled": true,
+    "bitSetterX": -4.51200008392334,
+    "bitSetterY": -1.51200008392334,
+    "bitZeroType": 2,
+    "connection": 1,
+    "lastConfigSent": 2,
+    "lastProbeIndex": 0,
+    "lastSizeOption": 2,
+    "odometer": [
+        {
+            "cleared": false,
+            "minutes": 48.91474999999989,
+            "startDate": "2024-04-06",
+            "travelX": 55954.89707864821,
+            "travelY": 68098.92333042622,
+            "travelZ": 18258.600173324347
+        }
+    ],
+    "showCarbideRouterRpm": true,
+    "spindleType": 0,
+    "travelX": -506.0,
+    "travelY": -490.0,
+    "travelZ": -155.0,
+    "version": 0,
+    "workOffsetX": 500.2439880371094,
+    "workOffsetY": 482.5069885253906,
+    "workOffsetZ": -14.204999999999998
+}
