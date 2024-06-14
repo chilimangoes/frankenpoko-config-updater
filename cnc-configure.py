@@ -39,12 +39,12 @@ def send_gcode_command(ser, command, retries=3):
 def set_and_verify_parameters(ser):
     # G-code commands to set parameters
     commands = [
-        "$100=26.667",  # Set X-axis steps per millimeter
-        "$101=26.667",  # Set Y-axis steps per millimeter
+        "$100=26.667", # Set X-axis steps per millimeter
+        "$101=26.667", # Set Y-axis steps per millimeter
         "$102=200",    # Set Z-axis steps per millimeter
         "$130=507",    # Set maximum travel (mm) along the X-axis
         "$131=490",    # Set maximum travel (mm) along the Y-axis
-        "$140=140"     # Set maximum travel (mm) along the Z-axis
+        "$132=140"     # Set maximum travel (mm) along the Z-axis
     ]
 
     # Send each command
@@ -54,6 +54,7 @@ def set_and_verify_parameters(ser):
     # Verify the parameters
     verify_command = "$$"
     responses = send_gcode_command(ser, verify_command)
+    failures = []
     if responses is not None:
         print("Verification of parameters:")
         for response in responses:
@@ -65,9 +66,21 @@ def set_and_verify_parameters(ser):
             if found:
                 print(f"{param} set correctly to {value}")
             else:
-                print(f"{param} not set correctly")
+                failure = f"{param} not set correctly"
+                failures.append(failure)
+                print(failure)
     else:
-        print("Failed to verify parameters with command: $$")
+        failure = "Failed to verify parameters with command '$$'. No response received from controller."
+        failures.append(failure)
+        print(failure)
+
+    if failures:
+        failureMessages = "\n".join(failures)
+        show_message(
+            "Controller Configuration Error",
+            f"One or more failures occurred while verifying the Shapeoko controller configuration: \n{failureMessages}\r\n Please log out of the computer and log back in. You might also need to reset the controller by hitting the red E-STOP button and then turning it clockwise to reset the power to the controller. If this problem persists, you should report it under the Woodshop category on Talk.",
+            image_path="error.png"
+        )
 
 def repl_loop(ser):
     while True:
@@ -129,7 +142,7 @@ def show_message(title, message, image_path=None):
     # Run the Tkinter main loop
     root.mainloop()
 
-def try_connect_and_configure(retries=2):
+def try_connect_and_configure(retries=4):
     attempts = 0
     while attempts < retries:
         print(f"Looking for Shapeoko controller. Connection attempt {attempts + 1}...")
@@ -139,12 +152,13 @@ def try_connect_and_configure(retries=2):
                 print(f"Checking port: {port.device}")
                 if "Shapeoko" in port.description:
                     try:
-                        ser = open_serial_port(port.device)
-                        print(f"Shapeoko controller found on port {port.device}.")
-                        set_and_verify_parameters(ser)
-                        # repl_loop(ser)  ### this is only here for testing purposes
-                        ser.close()
-                        return True
+                        with open_serial_port(port.device) as ser:
+                            response = send_gcode_command(ser, b"\r\n\r\n")
+                            if 'Grbl' in " ".join(response):
+                                print(f"Shapeoko controller found on port {port.device}.")
+                                set_and_verify_parameters(ser)
+                                # repl_loop(ser)  ### this is only here for testing purposes
+                                return True
                     except serial.SerialException as e:
                         if "PermissionError" in str(e):
                             print(f"Access Denied error on port {port.device}: {e}")
@@ -198,7 +212,7 @@ def main():
     close_carbide_motion()
 
     # Try to connect to the Shapeoko controller and update onboard stepper configuration
-    response = try_connect_and_configure(retries=2)
+    response = try_connect_and_configure()
 
     if response:
         # Get the path to the current user's AppData\Local\Carbide 3D\CarbideMotion6 directory
